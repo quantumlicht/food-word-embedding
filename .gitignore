@@ -1,0 +1,5 @@
+board
+.idea
+recipe-scraper
+*.png
+__pycache__
