@@ -5,28 +5,31 @@ from collections import Counter
 import re
 import os
 import matplotlib.pyplot as plt
-from nltk.stem import WordNetLemmatizer
+# from nltk.stem import WordNetLemmatizer
 
-class WordCleaner(object):
-    def __init__(self):
-        self.wnl = WordNetLemmatizer()
-
-    def clean(self, word):
-
-
-    def __is_plural(self, word):
-        lemma = self.wnl.lemmatize(word, 'n')
-        return word is not lemma
+# class WordCleaner(object):
+#     def __init__(self):
+#         self.wnl = WordNetLemmatizer()
+#
+#     def clean(self, word):
+#         pass
+#
+#     def __is_plural(self, word):
+#         lemma = self.wnl.lemmatize(word, 'n')
+#         return word is not lemma
 
 
 class VocabBuilder(object):
     # TODO Stem words to remove pluralizations
 
-    def __init__(self, logger, black_list_vocab=None, dump_path=None, word_list_path=None,
-                 subsample=True, subsample_threshold=1e-5,
+    def __init__(self, logger, json_data_sources, black_list_vocab=None, dump_path=None, word_list_path=None,
+                 subsample_threshold=1e-5,
                  word_length_threshold=3, tail_word_count_cutoff=10,
                  truncate_most_common=None):
         self.logger = logger
+        self.json_data_sources = json_data_sources
+        self.words = []
+
         self.dump_path = dump_path
         self.word_list_path = word_list_path
 
@@ -82,17 +85,11 @@ class VocabBuilder(object):
             self.__subsample()
 
     def __load_from_json(self):
-        self.logger.info('Loading Food Network...')
-        df_fn = pd.read_json('../data/recipes_raw_fn.json')
-        self.logger.debug('\tExtracting words...')
-        fn_words = self.__extract_words(df_fn)
-
-        self.logger.info('Loading Epicurious...')
-        df_epi = pd.read_json('../data/recipes_raw_epi.json')
-        self.logger.debug('\tExtracting words...')
-        epi_words = self.__extract_words(df_epi)
-
-        self.words = fn_words + epi_words
+        for data_source in self.json_data_sources:
+            self.logger.info('Loading dataframe from {}'.format(data_source))
+            data_frame = pd.read_json(data_source)
+            self.logger.debug('\tExtracting words...')
+            self.words  += self.__extract_words(data_frame)
 
         self.logger.info("Done loading vocabulary. {}".format(len(self.words)))
 

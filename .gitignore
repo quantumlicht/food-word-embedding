@@ -1,5 +1,6 @@
 board
 .idea
+data
 recipe-scraper
 *.png
 __pycache__

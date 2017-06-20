@@ -88,7 +88,9 @@ def main():
     logger = get_experiment_logger(experiment.experiment_dir)
 
     black_list_path = os.path.join(root, 'blacklist.txt')
-    vocab_builder = VocabBuilder(logger, black_list_vocab=black_list_path, truncate_most_common=truncate_most_common)
+
+    data_sources = ['./data/recipes_raw_epi.json', './data/recipes_raw_fn.json']
+    vocab_builder = VocabBuilder(logger, data_sources, black_list_vocab=black_list_path, truncate_most_common=truncate_most_common)
     vocab_builder.plot_distribution()
 
     n_batch = n_batches(vocab_builder.int_words, batch_size)
