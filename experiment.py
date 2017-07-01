@@ -1,5 +1,6 @@
 import os
 
+
 class Experiment:
     def __init__(self, root, base_folder):
         self.root = root
@@ -23,16 +24,16 @@ class Experiment:
     def __get_last_restore_point(self):
         folder = os.path.join(self.base_path, str(self.experiment_id - 1))
         meta_file = None
-        id = self.experiment_id
+        id_ = self.experiment_id
 
         while meta_file is None:
-            for root, dir, files in os.walk(folder):
+            for root, directory, files in os.walk(folder):
                 for name in files:
                     if name.endswith('.meta'):
                         meta_file = os.path.join(folder, name)
-            folder = os.path.join(self.base_path, str(id))
-            id -= 1
-            if id < 0:
+            folder = os.path.join(self.base_path, str(id_))
+            id_ -= 1
+            if id_ < 0:
                 folder = None
                 break
         return meta_file, folder

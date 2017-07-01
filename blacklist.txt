@@ -1,5 +1,6 @@
 about
 add
+advertisement
 all
 and
 another
@@ -9,6 +10,7 @@ been
 but
 but
 cant
+com
 degreesf
 does
 doesn
@@ -35,6 +37,7 @@ make
 making
 may
 meanwhile
+min
 much
 must
 not

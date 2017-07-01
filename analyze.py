@@ -10,17 +10,17 @@ from experiment import Experiment
 import logging
 
 
-def get_experiment_logger(experiment_dir):
+def get_experiment_logger(experiment_dir, log_level='INFO'):
     logger = logging.getLogger("")
-    logger.setLevel(logging.DEBUG)
-    format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logger.setLevel(logging.__dict__[log_level])
+    log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     sh = logging.StreamHandler(sys.stdout)
-    sh.setFormatter(format)
+    sh.setFormatter(log_format)
     logger.addHandler(sh)
 
     fh = logging.FileHandler(os.path.join(experiment_dir, 'experiment.log'))
-    fh.setFormatter(format)
+    fh.setFormatter(log_format)
     logger.addHandler(fh)
     return logger
 
@@ -85,12 +85,14 @@ def main():
 
     restore = False  # Restore model from latest checkpoint
 
-    logger = get_experiment_logger(experiment.experiment_dir)
+    logger = get_experiment_logger(experiment.experiment_dir, log_level='DEBUG')
 
-    black_list_path = os.path.join(root, 'blacklist.txt')
+    with open(os.path.join(root, 'blacklist.txt')) as f:
+        blacklist_vocab = [line.strip() for line in f.readlines()]
 
-    data_sources = ['./data/recipes_raw_epi.json', './data/recipes_raw_fn.json']
-    vocab_builder = VocabBuilder(logger, data_sources, black_list_vocab=black_list_path, truncate_most_common=truncate_most_common)
+    data_sources = ['./data']
+    vocab_builder = VocabBuilder(logger, data_sources, black_list_vocab=blacklist_vocab,
+                                 truncate_most_common=truncate_most_common, word_list_path=root+'/data/words.txt')
     vocab_builder.plot_distribution()
 
     n_batch = n_batches(vocab_builder.int_words, batch_size)
@@ -99,12 +101,13 @@ def main():
         len(vocab_builder.int_words) - n_batch*batch_size,
         n_batch)
     )
-
+    logger.info('Writing {} embedding labels to disk...'.format(len(vocab_builder.words)))
     embedding_metadata_path = write_embedding_labels_to_disk(experiment.experiment_dir, vocab_builder.words)
     logger.info("embedding labels stored at {}".format(embedding_metadata_path))
 
     logger.info("Generating model...")
-    model = WordEmbeddingModel(logger, embedding_size, vocab_builder.lookup, experiment.experiment_dir, embedding_metadata_path)
+    model = WordEmbeddingModel(logger, embedding_size, vocab_builder.lookup,
+                               experiment.experiment_dir, embedding_metadata_path)
 
     if not restore:
         logger.info("Training...")

@@ -1,5 +1,5 @@
-from tensorflow.contrib.tensorboard.plugins import projector
 import tensorflow as tf
+from tensorflow.contrib.tensorboard.plugins import projector
 import os
 import numpy as np
 import random
@@ -9,7 +9,10 @@ from sklearn.manifold import TSNE
 
 class WordEmbeddingModel:
     def __init__(self, logger, embedding_size, lookup, writer_dir, metadata_path):
-        self.__init_config()
+        self.n_sampled = 100
+        self.validation_set_size = 8
+        self.validation_sample_window_size = 100
+
         self.logger = logger
         self.metadata_path = metadata_path
         self.embedding_size = embedding_size
@@ -30,7 +33,6 @@ class WordEmbeddingModel:
         self.__setup_visualizer()  # should be after all variables are created
         self.sess.run(tf.global_variables_initializer())
 
-
     @staticmethod
     def __variable_summaries(var):
         """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
@@ -43,7 +45,6 @@ class WordEmbeddingModel:
             tf.summary.scalar('max', tf.reduce_max(var))
             tf.summary.scalar('min', tf.reduce_min(var))
             tf.summary.histogram('histogram', var)
-
 
     def visualize_tsne(self, nb_words, save_path=None):
         tsne = TSNE()
@@ -65,11 +66,6 @@ class WordEmbeddingModel:
 
         embedding.metadata_path = self.metadata_path
         projector.visualize_embeddings(self.summary_writer, config)
-
-    def __init_config(self):
-        self.n_sampled = 100
-        self.validation_set_size = 8
-        self.validation_sample_window_size = 100
 
     def run(self, iteration, x, y):
         feed = {self.inputs: x,
@@ -154,7 +150,7 @@ class WordEmbeddingModel:
 
         with tf.name_scope('loss'):
             # Calculate the loss using negative sampling
-            # TODO: Check results with NCE loss
+            # TODO: Compare results with NCE loss
             loss = tf.nn.sampled_softmax_loss(softmax_w, softmax_b,
                                               labels, embed,
                                               self.n_sampled, self.n_vocab, name='loss')
