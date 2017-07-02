@@ -13,7 +13,6 @@ class VocabBuilder(object):
 
         self.word_col = WordCollection()
         self.logger = logger
-        self.stop_words = []
         self.tail_word_count_cutoff = tail_word_count_cutoff
         self.keep_most_common = keep_most_common
         self.subsample_threshold = subsample_threshold
@@ -25,7 +24,22 @@ class VocabBuilder(object):
         self.word_cleaner = WordCleaner(word_length_threshold=3, black_list_vocab=black_list_vocab)
 
     def get_lookups(self):
-        return self.word_col.lookup_tables()
+        word_counts = self.word_col.as_counter()
+        sorted_vocab = sorted(word_counts, key=word_counts.get, reverse=True)
+        int_to_vocab = {}
+        vocab_to_int = {}
+        for ii, word in enumerate(sorted_vocab):
+            int_to_vocab[ii] = word
+            vocab_to_int[word] = ii
+
+        int_words = [vocab_to_int[word] for word in self.word_col.items()]
+
+        lookup = dict()
+        lookup['int2vocab'] = int_to_vocab
+        lookup['vocab2int'] = vocab_to_int
+        lookup['int_words'] = int_words
+
+        return lookup
 
     def save_word_collection(self, file_path):
         self.logger.info("Persisting words to disk: {}".format(file_path))
@@ -75,15 +89,20 @@ class VocabBuilder(object):
 
         self.__normalize_word_collection()
 
+    '''
+    Make sure the word_collection is cleaned up (downsampled, and infrequent words are cutoff
+    '''
     def __normalize_word_collection(self):
         self.word_col.keep_most_common(keep_most_common=self.keep_most_common,
                                        tail_word_count_cutoff=self.tail_word_count_cutoff)
         self.word_col.subsample(self.subsample_threshold)
-        self.lookup = self.word_col.lookup_tables()
 
         self.logger.info("unique words {} total dataset {}".format(
             len(self.word_col.vocab()), len(self.word_col.items())))
 
+    '''
+    Retrieve word list from dataframe
+    '''
     def __extract_words_from_dataframe(self, df, keys):
         words = []
         for index, row in df.transpose().iterrows():

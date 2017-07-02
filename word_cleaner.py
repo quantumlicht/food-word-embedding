@@ -4,7 +4,7 @@ import re
 
 class WordCleaner(object):
 
-    def __init__(self, word_length_threshold=3, black_list_vocab=None, truncate_most_common=None):
+    def __init__(self, word_length_threshold=3, black_list_vocab=None):
         self.lemmatizer = WordNetLemmatizer()
         self.black_list_vocab = black_list_vocab
         self.word_length_threshold = word_length_threshold

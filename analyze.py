@@ -145,7 +145,7 @@ def main():
     else:
         if experiment.restore_dir is not None:
             model.restore(experiment.last_restore_point, experiment.restore_dir)
-            model.extrapolate_relation(direction=('steak', 'pepper'), word_targets=('salmon', 'potato'))
+            model.extrapolate_relation(direction=('steak', 'pepper'), word_targets=('salmon', 'potato', 'banana'))
         else:
             logger.info("No model to restore")
 
