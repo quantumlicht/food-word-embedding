@@ -6,10 +6,10 @@ class Experiment:
         self.root = root
         self.base_path = os.path.join(self.root, base_folder)
         self.__get_experiment_id()
-        self.experiment_dir = self.__get_experiment_dir()
+        self.dir = self.__get_experiment_dir()
         self.last_restore_point, self.restore_dir = self.__get_last_restore_point()
 
-        print("experiment_dir: {}".format(self.experiment_dir))
+        print("experiment_dir: {}".format(self.dir))
 
     def __get_experiment_id(self):
         self.experiment_id = 1

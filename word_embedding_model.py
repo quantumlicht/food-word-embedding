@@ -11,7 +11,6 @@ class WordEmbeddingModel:
     def __init__(self, logger, embedding_size, lookup, writer_dir, metadata_path):
         self.n_sampled = 100
         self.validation_set_size = 8
-        self.validation_sample_window_size = 100
 
         self.logger = logger
         self.metadata_path = metadata_path
@@ -22,7 +21,7 @@ class WordEmbeddingModel:
         self.writer_dir = writer_dir
 
         self.validation_examples = self.__get_validation_examples()
-        self.inputs, self.labels, self.cost, self.optimizer, self.embedding = self.__get_training_ops()
+        self.inputs, self.labels, self.cost, self.optimizer, self.embedding, self.learn_rate = self.__get_training_ops()
         self.normalized_embedding, self.similarity, self.validation_embedding = self.__get_similarity_ops()
 
         self.sess = tf.Session()
@@ -67,9 +66,11 @@ class WordEmbeddingModel:
         embedding.metadata_path = self.metadata_path
         projector.visualize_embeddings(self.summary_writer, config)
 
-    def run(self, iteration, x, y):
+    def run(self, iteration, x, y, learning_rate):
         feed = {self.inputs: x,
-                self.labels: y}
+                self.labels: y,
+                self.learn_rate: learning_rate
+                }
         train_loss, _, summary = self.sess.run([self.cost, self.optimizer, self.merged], feed_dict=feed)
         self.summary_writer.add_summary(summary, iteration)
         return train_loss
@@ -97,7 +98,7 @@ class WordEmbeddingModel:
             for k in range(top_k):
                 close_word = self.int2vocab[nearest[k]]
                 log = '%s %s,' % (log, close_word)
-            self.logger.info(log)
+            self.logger.debug(log)
 
     def extrapolate_relation(self, direction, word_targets):
         relation_from_word_code = self.vocab2int[direction[0]]
@@ -131,6 +132,9 @@ class WordEmbeddingModel:
         self.__run_similarity(cosine_similarity, list(range(-1, last_target_code, -1)), len(targets), n_neighbors=16)
 
     def __get_training_ops(self):
+        with tf.name_scope('learning_rate'):
+            learning_rate = tf.placeholder(tf.float32)
+
         with tf.name_scope('inputs'):
             inputs = tf.placeholder(tf.int32, [None], name='inputs')
         with tf.name_scope('labels'):
@@ -157,18 +161,19 @@ class WordEmbeddingModel:
             cost = tf.reduce_mean(loss)
         tf.summary.scalar('cost', cost)
 
-        optimizer = tf.train.AdamOptimizer().minimize(cost)
+        optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate).minimize(cost)
 
-        return inputs, labels, cost, optimizer, embedding
+        return inputs, labels, cost, optimizer, embedding, learning_rate
 
     def __get_validation_examples(self):
+        validation_sample_window_size = 100
         # pick 8 samples from (0,100) and (1000,1100) each ranges. lower id implies more frequent
         sample = random.sample(
-            range(self.validation_sample_window_size), self.validation_set_size // 2)
+            range(validation_sample_window_size), self.validation_set_size // 2)
         validation_examples = np.array(sample)
 
         sample = random.sample(
-            range(self.n_vocab // 2, self.n_vocab // 2 + self.validation_sample_window_size),
+            range(self.n_vocab // 2, self.n_vocab // 2 + validation_sample_window_size),
             self.validation_set_size // 2)
         validation_examples = np.append(validation_examples, sample)
         return validation_examples

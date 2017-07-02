@@ -25,25 +25,21 @@ def get_experiment_logger(experiment_dir, log_level='INFO'):
     return logger
 
 
-def get_target(words, idx, win_size=5):
-    """ Get a list of words in a window around an index. """
-    r = np.random.randint(1, win_size + 1)
-    start = idx - r if (idx - r) > 0 else 0
-    stop = idx + r
-    target_words = set(words[start:idx] + words[idx + 1:stop + 1])
-
-    return list(target_words)
-
-
-def n_batches(words, batch_size):
-    return len(words) // batch_size
-
-
 def get_batches(words, batch_size, win_size=5):
     """" Create a generator of word batches as a tuple (inputs, targets) """
 
+    def get_target(word_list, index, window_size=5):
+        """ Get a list of words in a window around an index. """
+        r = np.random.randint(1, window_size + 1)
+        start = index - r if (index - r) > 0 else 0
+        stop = index + r
+        target_words = set(word_list[start:idx] + word_list[index + 1:stop + 1])
+
+        return list(target_words)
+
     # only full batches
-    words = words[:n_batches(words, batch_size) * batch_size]
+    n_batches = len(words) // batch_size
+    words = words[:n_batches * batch_size]
 
     for idx in range(0, len(words), batch_size):
         x, y = [], []
@@ -58,7 +54,6 @@ def get_batches(words, batch_size, win_size=5):
 
 def write_embedding_labels_to_disk(experiment_dir, words):
     metadata_file_path = os.path.join(experiment_dir, 'metadata.tsv')
-
     word_counts = Counter(words)
     with open(metadata_file_path, 'w') as f:
         f.write("Word\tFrequency\n")
@@ -73,48 +68,54 @@ def main():
     epochs = 1
     batch_size = 64
     window_size = 10
+    learn_rate=0.001
     save_every = 10000  # Save every x iteration
     log_every = 1000  # Log training stats every x iteration
     eval_similarity_every = 10000  # eval similarity every x iteration
-
+    word_list_path = './data/words.txt'
     embedding_size = 100
-    truncate_most_common = None  # None for no truncation
-
-    experiment = Experiment(root, experiments_folder)
-    os.makedirs(experiment.experiment_dir)
-
+    keep_most_common = None  # None for no truncation
     restore = False  # Restore model from latest checkpoint
 
-    logger = get_experiment_logger(experiment.experiment_dir, log_level='DEBUG')
+    experiment = Experiment(root, experiments_folder)
+    os.makedirs(experiment.dir)
+
+    logger = get_experiment_logger(experiment.dir, log_level='DEBUG')
 
     with open(os.path.join(root, 'blacklist.txt')) as f:
         blacklist_vocab = [line.strip() for line in f.readlines()]
 
-    data_sources = ['./data']
-    vocab_builder = VocabBuilder(logger, data_sources, black_list_vocab=blacklist_vocab,
-                                 truncate_most_common=truncate_most_common, word_list_path=root+'/data/words.txt')
-    vocab_builder.plot_distribution()
+    vocab_builder = VocabBuilder(logger, black_list_vocab=blacklist_vocab, keep_most_common=keep_most_common)
 
-    n_batch = n_batches(vocab_builder.int_words, batch_size)
+    if restore or os.path.isfile(word_list_path):
+        vocab_builder.build_from_word_list(word_list_path)
+    else:
+        vocab_builder.build_from_json_sources(['./data'], keys=('instructions', 'ingredients'))
+        vocab_builder.save_word_collection(word_list_path)
+
+    vocab_builder.word_count_distribution()
+    lookups = vocab_builder.get_lookups()
+
+    n_batch = len(lookups['int_words']) // batch_size
 
     logger.info("Losing {} words to obtain {} full batches".format(
-        len(vocab_builder.int_words) - n_batch*batch_size,
+        len(lookups['int_words']) - n_batch*batch_size,
         n_batch)
     )
-    logger.info('Writing {} embedding labels to disk...'.format(len(vocab_builder.words)))
-    embedding_metadata_path = write_embedding_labels_to_disk(experiment.experiment_dir, vocab_builder.words)
-    logger.info("embedding labels stored at {}".format(embedding_metadata_path))
+    logger.info('Writing {} embedding labels to disk...'.format(len(vocab_builder.word_col.items())))
+    embedding_metadata_path = write_embedding_labels_to_disk(experiment.dir, vocab_builder.word_col.items())
+    logger.info("\tembedding labels stored at {}".format(embedding_metadata_path))
 
     logger.info("Generating model...")
-    model = WordEmbeddingModel(logger, embedding_size, vocab_builder.lookup,
-                               experiment.experiment_dir, embedding_metadata_path)
+    model = WordEmbeddingModel(logger, embedding_size, lookups,
+                               experiment.dir, embedding_metadata_path)
 
     if not restore:
         logger.info("Training...")
         iteration = 1
         loss = 0
         for e in range(1, epochs + 1):
-            batches = get_batches(vocab_builder.int_words, batch_size, window_size)
+            batches = get_batches(lookups['int_words'], batch_size, window_size)
             start = time.time()
             for x, y in batches:
                 labels = np.array(y)[:, None]
@@ -140,12 +141,11 @@ def main():
         # final save
         logger.info("Training complete")
         model.save(iteration)
-
-        model.extrapolate_relation(direction=('steak', 'pepper'), word_targets=('salmon', 'potatoes'))
+        model.extrapolate_relation(direction=('steak', 'pepper'), word_targets=('salmon', 'potato'))
     else:
         if experiment.restore_dir is not None:
             model.restore(experiment.last_restore_point, experiment.restore_dir)
-            model.extrapolate_relation(direction=('steak', 'pepper'), word_targets=('salmon', 'potatoes'))
+            model.extrapolate_relation(direction=('steak', 'pepper'), word_targets=('salmon', 'potato'))
         else:
             logger.info("No model to restore")
 
