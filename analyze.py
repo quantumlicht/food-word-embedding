@@ -65,18 +65,27 @@ def write_embedding_labels_to_disk(experiment_dir, words):
 def main():
     root = os.path.dirname(os.path.realpath(__file__))
     experiments_folder = "board\\train"
-    epochs = 1
+    # batching params
     batch_size = 64
     window_size = 10
-    learn_rate=0.001
+
+    # model params
+    epochs = 1
+    embedding_size = 100
+    learning_rate = 0.001
+    visualize_embedding = False
+
+    # runner params
     save_every = 10000  # Save every x iteration
     log_every = 1000  # Log training stats every x iteration
     eval_similarity_every = 10000  # eval similarity every x iteration
-    word_list_path = './data/words.txt'
-    embedding_size = 100
-    keep_most_common = None  # None for no truncation
-    restore = False  # Restore model from latest checkpoint
+    restore = True  # Restore model from latest checkpoint
 
+    # Word embedding params
+    word_list_path = './data/words.txt'
+    keep_most_common = None  # None for no truncation
+
+    # #########################################################
     experiment = Experiment(root, experiments_folder)
     os.makedirs(experiment.dir)
 
@@ -102,13 +111,15 @@ def main():
         len(lookups['int_words']) - n_batch*batch_size,
         n_batch)
     )
-    logger.info('Writing {} embedding labels to disk...'.format(len(vocab_builder.word_col.items())))
-    embedding_metadata_path = write_embedding_labels_to_disk(experiment.dir, vocab_builder.word_col.items())
-    logger.info("\tembedding labels stored at {}".format(embedding_metadata_path))
 
     logger.info("Generating model...")
     model = WordEmbeddingModel(logger, embedding_size, lookups,
-                               experiment.dir, embedding_metadata_path)
+                               experiment.dir)
+    if visualize_embedding:
+        logger.info('Writing {} embedding labels to disk...'.format(len(vocab_builder.word_col.items())))
+        embedding_metadata_path = write_embedding_labels_to_disk(experiment.dir, vocab_builder.word_col.items())
+        logger.info("\tembedding labels stored at {}".format(embedding_metadata_path))
+        model.init_visualizer(os.path.join(embedding_metadata_path))
 
     if not restore:
         logger.info("Training...")
@@ -119,7 +130,7 @@ def main():
             start = time.time()
             for x, y in batches:
                 labels = np.array(y)[:, None]
-                train_loss = model.run(iteration, x, labels)
+                train_loss = model.run(iteration, x, labels, learning_rate)
                 loss += train_loss
 
                 if iteration % log_every == 0:

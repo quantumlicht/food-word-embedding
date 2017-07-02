@@ -8,12 +8,11 @@ from sklearn.manifold import TSNE
 
 
 class WordEmbeddingModel:
-    def __init__(self, logger, embedding_size, lookup, writer_dir, metadata_path):
+    def __init__(self, logger, embedding_size, lookup, writer_dir):
         self.n_sampled = 100
         self.validation_set_size = 8
 
         self.logger = logger
-        self.metadata_path = metadata_path
         self.embedding_size = embedding_size
         self.vocab2int = lookup['vocab2int']
         self.int2vocab = lookup['int2vocab']
@@ -21,7 +20,7 @@ class WordEmbeddingModel:
         self.writer_dir = writer_dir
 
         self.validation_examples = self.__get_validation_examples()
-        self.inputs, self.labels, self.cost, self.optimizer, self.embedding, self.learn_rate = self.__get_training_ops()
+        self.inputs, self.labels, self.cost, self.optimizer, self.embedding, self.learning_rate = self.__get_training_ops()
         self.normalized_embedding, self.similarity, self.validation_embedding = self.__get_similarity_ops()
 
         self.sess = tf.Session()
@@ -29,7 +28,6 @@ class WordEmbeddingModel:
         self.saver = tf.train.Saver()
         self.merged = tf.summary.merge_all()
         self.summary_writer = tf.summary.FileWriter(self.writer_dir, self.sess.graph)
-        self.__setup_visualizer()  # should be after all variables are created
         self.sess.run(tf.global_variables_initializer())
 
     @staticmethod
@@ -58,18 +56,19 @@ class WordEmbeddingModel:
         if save_path is not None:
             fig.savefig(save_path)
 
-    def __setup_visualizer(self):
+    def init_visualizer(self, metadata_path):
         config = projector.ProjectorConfig()
         embedding = config.embeddings.add()
         embedding.tensor_name = self.normalized_embedding.name
 
-        embedding.metadata_path = self.metadata_path
+        embedding.metadata_path = metadata_path
         projector.visualize_embeddings(self.summary_writer, config)
+        self.sess.run(tf.global_variables_initializer())
 
     def run(self, iteration, x, y, learning_rate):
         feed = {self.inputs: x,
                 self.labels: y,
-                self.learn_rate: learning_rate
+                self.learning_rate: learning_rate
                 }
         train_loss, _, summary = self.sess.run([self.cost, self.optimizer, self.merged], feed_dict=feed)
         self.summary_writer.add_summary(summary, iteration)
@@ -133,7 +132,7 @@ class WordEmbeddingModel:
 
     def __get_training_ops(self):
         with tf.name_scope('learning_rate'):
-            learning_rate = tf.placeholder(tf.float32)
+            learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 
         with tf.name_scope('inputs'):
             inputs = tf.placeholder(tf.int32, [None], name='inputs')
@@ -161,7 +160,7 @@ class WordEmbeddingModel:
             cost = tf.reduce_mean(loss)
         tf.summary.scalar('cost', cost)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate).minimize(cost)
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
         return inputs, labels, cost, optimizer, embedding, learning_rate
 

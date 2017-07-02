@@ -1,4 +1,5 @@
 import os
+import time
 
 
 class Experiment:
@@ -11,6 +12,7 @@ class Experiment:
 
         print("experiment_dir: {}".format(self.dir))
 
+
     def __get_experiment_id(self):
         self.experiment_id = 1
         path = os.path.join(self.base_path, str(self.experiment_id))
@@ -22,16 +24,16 @@ class Experiment:
         return os.path.join(self.base_path, str(self.experiment_id))
 
     def __get_last_restore_point(self):
-        folder = os.path.join(self.base_path, str(self.experiment_id - 1))
         meta_file = None
-        id_ = self.experiment_id
+        id_ = self.experiment_id - 1
 
         while meta_file is None:
+            folder = os.path.join(self.base_path, str(id_))
             for root, directory, files in os.walk(folder):
                 for name in files:
                     if name.endswith('.meta'):
                         meta_file = os.path.join(folder, name)
-            folder = os.path.join(self.base_path, str(id_))
+                        continue
             id_ -= 1
             if id_ < 0:
                 folder = None
